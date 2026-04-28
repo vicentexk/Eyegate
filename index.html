@@ -51,10 +51,17 @@
       position: fixed; 
       top: 0; left: 0; 
       width: 100%; height: 100%; 
-      background: rgba(0,0,0,0.8); 
+      background: rgba(0,0,0,0.85); 
       z-index: 1000; 
       align-items: center; 
       justify-content: center; 
+    }
+    .modal-content {
+      background: white; 
+      padding: 30px; 
+      border-radius: 16px; 
+      width: 90%; 
+      max-width: 580px; 
     }
   </style>
 </head>
@@ -75,53 +82,52 @@
 
     <div class="card">
       <h2>👥 Alunos Cadastrados</h2>
-      <p id="status">Clique em Atualizar para ver</p>
+      <p id="status">Clique em Atualizar</p>
       <button onclick="carregarAlunos()">ATUALIZAR LISTA</button>
     </div>
   </div>
 
-  <!-- Modal de Cadastro -->
+  <!-- Modal -->
   <div id="modal">
-    <div style="background:white; padding:30px; border-radius:16px; width:90%; max-width:580px; max-height:90vh; overflow:auto;">
+    <div class="modal-content">
       <h2>Novo Cadastro de Aluno</h2><br>
       
       <label>Nome completo:</label>
-      <input type="text" id="nome" style="width:100%; padding:12px; margin:8px 0 16px;" placeholder="Ex: João Silva">
+      <input type="text" id="nome" style="width:100%; padding:12px; margin:8px 0;" placeholder="Ex: João Silva">
 
       <label>CGM:</label>
-      <input type="text" id="cgm" style="width:100%; padding:12px; margin:8px 0 16px;" placeholder="Ex: 12345678">
+      <input type="text" id="cgm" style="width:100%; padding:12px; margin:8px 0;" placeholder="Ex: 12345678">
 
       <label>Turma:</label>
-      <input type="text" id="turma" style="width:100%; padding:12px; margin:8px 0 16px;" placeholder="Ex: 3A">
+      <input type="text" id="turma" style="width:100%; padding:12px; margin:8px 0;" placeholder="Ex: 3A">
 
       <label>Turno:</label>
-      <select id="turno" style="width:100%; padding:12px; margin:8px 0 16px;">
+      <select id="turno" style="width:100%; padding:12px; margin:8px 0;">
         <option value="">Selecione o turno</option>
         <option value="Manhã">Manhã</option>
         <option value="Tarde">Tarde</option>
         <option value="Noite">Noite</option>
       </select>
 
-      <label>Foto do aluno (rosto visível):</label>
+      <label>Foto do aluno:</label>
       <input type="file" id="foto" accept="image/*" style="margin:10px 0 20px;">
 
       <button onclick="cadastrarAluno()" style="width:100%; padding:14px;">Cadastrar Aluno</button>
-      <button onclick="fecharModal()" style="width:100%; margin-top:10px; background:#e5e7eb;">Fechar</button>
+      <button onclick="fecharModal()" style="width:100%; margin-top:10px; background:#ccc;">Cancelar</button>
     </div>
   </div>
 
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-  <script>
+  <script type="module">
     // ==================== CONEXÃO COM SUPABASE ====================
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
     const supabaseUrl = 'https://aslcwuwijpehvhtkrahp.supabase.co';
     const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFzbGN3dXdpanBlaHZodGtyYWhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwODI3NDQsImV4cCI6MjA5MTY1ODc0NH0.F8ac-a66w6TyNPtqR7jGaIYww-tQrJnkO44bxJOKDlw';
 
-    const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
     const BUCKET_NAME = 'fotos-alunos';
 
-    // ==================== FUNÇÕES DO MODAL ====================
+    // ==================== FUNÇÕES ====================
     function abrirModal() {
       document.getElementById('modal').style.display = 'flex';
     }
@@ -145,36 +151,41 @@
       try {
         const filePath = `alunos/${cgm}.jpg`;
 
-        // Upload da foto
         const { error: uploadError } = await supabase.storage
           .from(BUCKET_NAME)
           .upload(filePath, arquivoFoto, { upsert: true });
 
-        if (uploadError) throw new Error("Erro no upload: " + uploadError.message);
+        if (uploadError) throw uploadError;
 
-        // Salvar no banco
         const { error: dbError } = await supabase
           .from('alunos')
-          .insert({ nome_aluno: nome, cgm: cgm, turma: turma, turno: turno, foto_path: filePath });
+          .insert({
+            nome_aluno: nome,
+            cgm: cgm,
+            turma: turma,
+            turno: turno,
+            foto_path: filePath
+          });
 
-        if (dbError) throw new Error("Erro ao salvar: " + dbError.message);
+        if (dbError) throw dbError;
 
         alert(`✅ Aluno ${nome} cadastrado com sucesso!`);
         fecharModal();
-        document.getElementById('nome').value = '';
-        document.getElementById('cgm').value = '';
       } catch (err) {
         console.error(err);
-        alert("❌ Erro: " + err.message);
+        alert("❌ Erro: " + (err.message || err));
       }
     }
 
     async function carregarAlunos() {
-      const { data, error } = await supabase.from('alunos').select('nome_aluno');
+      const { data, error } = await supabase.from('alunos').select('*');
       const status = document.getElementById('status');
       if (error) status.textContent = "Erro ao carregar";
-      else status.textContent = `${data ? data.length : 0} alunos cadastrados`;
+      else status.textContent = `${data.length} alunos cadastrados`;
     }
+
+    // Carrega a lista ao abrir a página
+    window.onload = carregarAlunos;
   </script>
 </body>
 </html>
